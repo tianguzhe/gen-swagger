@@ -2,6 +2,7 @@ package utils
 
 import (
 	"fmt"
+	"regexp"
 	"strings"
 
 	"gen-swagger/model"
@@ -42,7 +43,7 @@ func FormatType(className string, prop model.Properties) string {
 		arrayRef := ReadRefObject(arrayItemRef)
 
 		// 历史遗留问题 兼容
-		if strings.Contains(arrayRef, "KeyValueDTO«") {
+		if strings.Contains(arrayRef, "KeyValueDTO<") {
 			return "List<KeyValueDTO>"
 		}
 
@@ -59,60 +60,6 @@ func FormatType(className string, prop model.Properties) string {
 	default:
 		return _nativeType(typeName, typeFormat)
 	}
-
-	// // 对象
-	// if prop.Ref != "" {
-	// 	ref := strings.Split(prop.Ref, "/")
-	// 	return ref[len(ref)-1]
-	// }
-
-	// var format = prop.Format
-
-	// switch prop.TypeGo {
-	// case "int", "int32", "integer", "number":
-	// 	if format == "int64" {
-	// 		return "Long"
-	// 	}
-	// 	if format == "double" {
-	// 		return "Double"
-	// 	}
-	// 	if format == "float" {
-	// 		return "Float"
-	// 	}
-	// 	if format == "int" || format == "int32" {
-	// 		return "Int"
-	// 	}
-	// 	return "Double"
-	// case "long", "int64":
-	// 	return "Long"
-	// case "bigdecimal", "double":
-	// 	return "Double"
-	// case "float":
-	// 	return "Float"
-	// case "string":
-	// 	return "String"
-	// case "boolean":
-	// 	return "Boolean"
-	// case "array":
-	// 	if prop.Items.TypeGo != "" {
-	// 		return "List<" + prop.Items.TypeGo + ">"
-	// 	}
-	// 	ref := strings.Split(prop.Items.Ref, "/")
-	// 	if strings.HasPrefix(ref[len(ref)-1], "KeyValueDTO") {
-	// 		return "List<KeyValueDTO>"
-	// 	}
-	// 	return "List<" + ref[len(ref)-1] + ">"
-	// case "object":
-	// 	if prop.AdditionalProperties.TypeGo != "" {
-	// 		return prop.AdditionalProperties.TypeGo
-	// 	}
-	// 	ref := strings.Split(prop.AdditionalProperties.Ref, "/")
-	// 	return ref[len(ref)-1]
-	// default:
-	// 	color.Red("%#v ==== ", prop)
-	// 	return ""
-	// }
-
 }
 
 func ReadRefObject(ref string) string {
@@ -123,15 +70,30 @@ func ReadRefObject(ref string) string {
 
 		// 处理异常数据
 		if strings.Contains(tmpObject, "«") {
-			color.Red("泛型异常 ==== %s", tmpObject)
 
 			replacer := strings.NewReplacer("«", "<", "»", ">")
 			tmpObject = replacer.Replace(tmpObject)
+
+			if strings.Contains(tmpObject, "KidRequest") {
+				return "KidRequest"
+			}
+
+			re := regexp.MustCompile("<(.*)>")
+			result := re.FindStringSubmatch(tmpObject)
+			formatType := _nativeType(result[1], "not format")
+
+			tmpObject = strings.ReplaceAll(tmpObject, result[1], formatType)
+			color.Red("泛型异常 ==== %s", tmpObject)
+
+			return tmpObject
+
 		}
 
 		return tmpObject
 	}
-	panic("ref 数据结构异常" + ref)
+
+	color.Red("ref 数据结构异常 === %s" + ref)
+	return ref
 }
 
 func _nativeType(typeName string, format string) string {

@@ -6,8 +6,6 @@ import (
 	"gen-swagger/utils"
 	"os"
 	"strings"
-
-	"github.com/fatih/color"
 )
 
 type ApiGenModel struct {
@@ -19,11 +17,12 @@ type ApiGenModel struct {
 	Response  string
 }
 
-func GeneraterApiFile(paths map[string]map[string]model.Path) {
+func GeneraterApiFile(paths map[string]map[string]model.Path, serviceName string) {
 
 	urlPathMap := make(map[string][]ApiGenModel, 20)
 
-	var build strings.Builder
+	var strBuild strings.Builder
+	var providerBuild strings.Builder
 
 	for urlPath, v := range paths {
 
@@ -48,7 +47,7 @@ func GeneraterApiFile(paths map[string]map[string]model.Path) {
 		for ApiMethod, pathInfo := range v {
 
 			for _, v := range pathInfo.Parameters {
-				if v.In != "header" {
+				if v.In != "header" && v.In != "path" {
 					tmpParams = append(tmpParams, v)
 				}
 			}
@@ -72,36 +71,62 @@ func GeneraterApiFile(paths map[string]map[string]model.Path) {
 
 	}
 
+	strBuild.WriteString(fmt.Sprintf("interface %sApiServer {\n", utils.UpperCamelCase(serviceName)))
+	providerBuild.WriteString(fmt.Sprintf("object Provide%sApiServer {\n", utils.UpperCamelCase(serviceName)))
+
 	for k, v := range urlPathMap {
 
-		build.WriteString(fmt.Sprintf("interface %s {", k))
+		strBuild.WriteString(fmt.Sprintf("interface %s {\n", k))
+
+		providerBuild.WriteString(fmt.Sprintf("fun provide%s(): %s.%s = \n", k, utils.UpperCamelCase(serviceName), k))
+		providerBuild.WriteString(fmt.Sprintf("RetrofitFactory.instance.createService(%s.%s::class.java)\n", utils.UpperCamelCase(serviceName), k))
 
 		for _, v2 := range v {
 
-			// @GET("jinyeyahe-order/[api_version]/pt/product-orders/action/app-cancel")
-			// fun appCanCel(@QueryMap params: MutableMap<String, Any>): Observable<BaseModel<Boolean>>
+			strBuild.WriteString("/**\n")
+			strBuild.WriteString(fmt.Sprintf("@description  %s\n", v2.Summary))
 
-			color.Yellow("v2.Response %s", v2.Response)
+			for _, param := range v2.Params {
+				strBuild.WriteString(fmt.Sprintf("@%s %s : %s (require : %t)\n", param.In, param.Name, getType(param), param.Required))
+			}
+			strBuild.WriteString("*/\n")
 
 			if v2.ApiMethod == "get" {
-				build.WriteString(fmt.Sprintf("@GET(\"%s\")\n", v2.UrlPath))
-				build.WriteString(fmt.Sprintf("fun %s(@QueryMap params: MutableMap<String, Any>): %s\n\n", v2.FuncName, strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
+				strBuild.WriteString(fmt.Sprintf("@GET(\"%s%s\")\n", serviceName, v2.UrlPath))
+				strBuild.WriteString(fmt.Sprintf("fun %s(@QueryMap params: MutableMap<String, Any>): %s\n\n", v2.FuncName, strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
 			} else if v2.ApiMethod == "post" {
-				// @POST("jinyeyahe-order/[api_version]/pt/product-orders/action/storeMeituanDeliver")
-				// fun storeMeituanDeliver(@Body dto: ManagerOperaDTO): Observable<BaseModel<Boolean>>
-
-				build.WriteString(fmt.Sprintf("@POST(\"%s\")\n", v2.UrlPath))
-				fmt.Println(v2.UrlPath)
-				build.WriteString(fmt.Sprintf("fun %s(@Body %s: %s): %s\n\n", v2.FuncName, v2.Params[0].Name, utils.ReadRefObject(v2.Params[0].Schema.Ref), strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
-
+				strBuild.WriteString(fmt.Sprintf("@POST(\"%s%s\")\n", serviceName, v2.UrlPath))
+				if len(v2.Params) != 0 {
+					strBuild.WriteString(fmt.Sprintf("fun %s(@Body %s: %s): %s\n\n", v2.FuncName, v2.Params[0].Name, utils.ReadRefObject(v2.Params[0].Schema.Ref), strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
+				} else {
+					strBuild.WriteString(fmt.Sprintf("fun %s(): %s\n\n", v2.FuncName, strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
+				}
+			} else if v2.ApiMethod == "put" {
+				strBuild.WriteString(fmt.Sprintf("@PUT(\"%s%s\")\n", serviceName, v2.UrlPath))
+				strBuild.WriteString(fmt.Sprintf("fun %s(@Body %s: %s): %s\n\n", v2.FuncName, v2.Params[0].Name, utils.ReadRefObject(v2.Params[0].Schema.Ref), strings.ReplaceAll(v2.Response, "Response", "BaseModel")))
 			}
 
 		}
 
-		build.WriteString("}\n\n")
+		strBuild.WriteString("}\n")
 
 	}
 
-	os.WriteFile("/Users/laj/vsj/goPrj/gen-swagger/api.kt", []byte(build.String()), 0666)
+	strBuild.WriteString("}\n")
+	providerBuild.WriteString("}\n")
 
+	os.MkdirAll("./apiservice/", 0755)
+	os.WriteFile("./apiservice/"+utils.UpperCamelCase(serviceName)+"ApiService.kt", []byte(strBuild.String()), 0666)
+
+	os.MkdirAll("./provider/", 0755)
+	os.WriteFile("./provider/"+"Provide"+utils.UpperCamelCase(serviceName)+"ApiService.kt", []byte(providerBuild.String()), 0666)
+
+}
+
+func getType(p model.Parameter) string {
+	if p.TypeGo != "" {
+		return p.TypeGo
+	}
+
+	return utils.ReadRefObject(p.Schema.Ref)
 }

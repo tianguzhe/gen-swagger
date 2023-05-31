@@ -1,0 +1,54 @@
+{
+  "serviceNames": [
+    {
+      "serviceName": "platform-support",
+      "fileName": "platform-support"
+    },
+    {
+      "serviceName": "jinyeyahe-business",
+      "fileName": "business",
+      "apiParams": "group=jinyeyahe-business"
+    },
+    {
+      "serviceName": "jinyeyahe-order",
+      "fileName": "order",
+      "apiParams": "group=jinyeyahe-order"
+    },
+    {
+      "serviceName": "jinyeyahe-product",
+      "fileName": "product",
+      "apiParams": "group=jinyeyahe-product"
+    },
+    {
+      "serviceName": "jinyeyahe-store",
+      "fileName": "store",
+      "apiParams": "group=jinyeyahe-store"
+    },
+    {
+      "serviceName": "jinyeyahe-thirdparty",
+      "fileName": "thirdparty",
+      "apiParams": "group=jinyeyahe-thirdparty"
+    },
+    {
+      "serviceName": "jinyeyahe-points",
+      "fileName": "points",
+      "apiParams": "group=jinyeyahe-points"
+    },
+    {
+      "serviceName": "jinyeyahe-user",
+      "fileName": "user",
+      "apiParams": "group=jinyeyahe-user"
+    }
+  ],
+  "serializable": [],
+  "custom": {
+    "实例": {
+      "vo": "返回实体",
+      "params": "请求参数"
+    }
+  },
+  "api": {
+    "baseUrl": "https://api-dev.yryz.com/gateway",
+    "version": "v2/api-docs"
+  }
+}
